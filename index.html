@@ -22,6 +22,7 @@
         }
         .message {
             margin-bottom: 10px;
+            cursor: pointer; /* Make the message clickable */
         }
         .pro {
             color: blue;
@@ -76,10 +77,12 @@
 <script>
     let totalTokens = 0; // Keep track of the total tokens used
     let startTime; // Store the debate start time
+    let timerActive = false; // To manage timer state
 
     // Function to start the timer
     function startTimer() {
         startTime = Date.now();
+        timerActive = true; // Set timer as active
         setInterval(updateTimer, 1000); // Update every second
     }
 
@@ -182,6 +185,27 @@
         let finalProRebuttal = await sendMessageToAPI(apiKey, `Make the final rebuttal`, proRole);
         chatbox.innerHTML += `<p class="message pro"><strong>Pro (Final Rebuttal):</strong> ${finalProRebuttal}</p>`;
         chatbox.scrollTop = chatbox.scrollHeight;
+
+        // Stop the timer after the final rebuttal
+        timerActive = false; // Set timer as inactive
+    });
+
+    // Function to expand a segment when clicked
+    async function expandSegment(segment) {
+        const apiKey = document.getElementById('api-key').value.trim();
+        const expandedContent = await sendMessageToAPI(apiKey, `Expand on the following argument: ${segment}`, "You are a knowledgeable assistant. Please provide a detailed explanation.");
+        
+        const chatbox = document.getElementById('chatbox');
+        chatbox.innerHTML += `<p class="message"><strong>Expansion:</strong> ${expandedContent}</p>`;
+        chatbox.scrollTop = chatbox.scrollHeight; // Scroll to the bottom
+    }
+
+    // Attach click event to messages in the chatbox
+    document.getElementById('chatbox').addEventListener('click', function(event) {
+        if (event.target.classList.contains('message')) {
+            const messageContent = event.target.innerText.replace(/^(Pro|Con|Expansion): /, ''); // Remove the label for expansion
+            expandSegment(messageContent);
+        }
     });
 </script>
 
