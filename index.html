@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChatGPT Interface</title>
+    <title>GPT Lincoln-Douglas Debate</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -13,32 +13,34 @@
         }
         #chatbox {
             width: 100%;
-            height: 400px;
+            height: 500px;
             border: 1px solid #ccc;
             padding: 10px;
             overflow-y: auto;
-            margin-bottom: 10px;
             background-color: white;
+            margin-bottom: 10px;
+        }
+        .message {
+            margin-bottom: 10px;
+        }
+        .pro {
+            color: blue;
+        }
+        .con {
+            color: red;
         }
         #input-area {
             display: flex;
             flex-direction: column;
         }
-        #api-key {
+        #api-key, #debate-topic {
             width: 100%;
             margin-bottom: 10px;
             padding: 10px;
             border-radius: 5px;
             border: 1px solid #ccc;
         }
-        #message {
-            width: 100%;
-            padding: 10px;
-            border-radius: 5px;
-            border: 1px solid #ccc;
-        }
-        #send-btn {
-            margin-top: 10px;
+        #start-debate-btn {
             padding: 10px;
             background-color: #28a745;
             color: white;
@@ -50,69 +52,92 @@
 </head>
 <body>
 
-<h1>ChatGPT Interface</h1>
+<h1>Lincoln-Douglas GPT Debate</h1>
 
 <div id="chatbox">
-    <!-- Chat history will appear here -->
+    <!-- Debate messages will appear here -->
 </div>
 
 <div id="input-area">
     <input type="text" id="api-key" placeholder="Enter your OpenAI API key" required>
-    <textarea id="message" placeholder="Type your message here..." rows="4"></textarea>
-    <button id="send-btn">Send</button>
+    <input type="text" id="debate-topic" placeholder="Enter the debate topic" required>
+    <button id="start-debate-btn">Start Debate</button>
 </div>
 
 <script>
-    document.getElementById('send-btn').addEventListener('click', async function() {
+    async function sendMessageToAPI(apiKey, message, role) {
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`
+            },
+            body: JSON.stringify({
+                model: "gpt-3.5-turbo",
+                messages: [{ role: "system", content: role }, { role: "user", content: message }]
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        return data.choices[0].message.content;
+    }
+
+    document.getElementById('start-debate-btn').addEventListener('click', async function() {
         const apiKey = document.getElementById('api-key').value.trim();
-        const message = document.getElementById('message').value.trim();
-        
-        if (!apiKey) {
-            alert('Please enter your OpenAI API key.');
+        const debateTopic = document.getElementById('debate-topic').value.trim();
+
+        if (!apiKey || !debateTopic) {
+            alert('Please enter both the API key and a debate topic.');
             return;
         }
 
-        if (!message) {
-            alert('Please enter a message.');
-            return;
-        }
-
-        // Add user's message to chatbox
         const chatbox = document.getElementById('chatbox');
-        chatbox.innerHTML += `<p><strong>You:</strong> ${message}</p>`;
+        chatbox.innerHTML = ''; // Clear chatbox
+
+        const proRole = "You are a debater in the Lincoln-Douglas debate format. Your job is to defend the Affirmative (Pro) side of the debate.";
+        const conRole = "You are a debater in the Lincoln-Douglas debate format. Your job is to defend the Negative (Con) side of the debate.";
+
+        // Affirmative Constructive (Pro)
+        chatbox.innerHTML += `<p class="message pro"><strong>Pro (Affirmative):</strong> ${debateTopic}</p>`;
         chatbox.scrollTop = chatbox.scrollHeight;
 
-        // Clear message input
-        document.getElementById('message').value = '';
+        let proMessage = await sendMessageToAPI(apiKey, debateTopic, proRole);
+        chatbox.innerHTML += `<p class="message pro"><strong>Pro (Affirmative):</strong> ${proMessage}</p>`;
+        chatbox.scrollTop = chatbox.scrollHeight;
 
-        try {
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: "gpt-3.5-turbo",
-                    messages: [{ role: "user", content: message }]
-                })
-            });
+        // Cross-Examination by Con
+        let conCX = await sendMessageToAPI(apiKey, `Cross-examine the Pro's argument: ${proMessage}`, conRole);
+        chatbox.innerHTML += `<p class="message con"><strong>Con (Cross-Examination):</strong> ${conCX}</p>`;
+        chatbox.scrollTop = chatbox.scrollHeight;
 
-            if (!response.ok) {
-                throw new Error(`Error: ${response.statusText}`);
-            }
+        // Negative Constructive (Con)
+        let conMessage = await sendMessageToAPI(apiKey, debateTopic, conRole);
+        chatbox.innerHTML += `<p class="message con"><strong>Con (Negative):</strong> ${conMessage}</p>`;
+        chatbox.scrollTop = chatbox.scrollHeight;
 
-            const data = await response.json();
-            const reply = data.choices[0].message.content;
+        // Cross-Examination by Pro
+        let proCX = await sendMessageToAPI(apiKey, `Cross-examine the Con's argument: ${conMessage}`, proRole);
+        chatbox.innerHTML += `<p class="message pro"><strong>Pro (Cross-Examination):</strong> ${proCX}</p>`;
+        chatbox.scrollTop = chatbox.scrollHeight;
 
-            // Add AI's response to chatbox
-            chatbox.innerHTML += `<p><strong>AI:</strong> ${reply}</p>`;
-            chatbox.scrollTop = chatbox.scrollHeight;
+        // Affirmative Rebuttal
+        let proRebuttal = await sendMessageToAPI(apiKey, `Rebut the Con's argument: ${conMessage}`, proRole);
+        chatbox.innerHTML += `<p class="message pro"><strong>Pro (Affirmative Rebuttal):</strong> ${proRebuttal}</p>`;
+        chatbox.scrollTop = chatbox.scrollHeight;
 
-        } catch (error) {
-            chatbox.innerHTML += `<p><strong>Error:</strong> ${error.message}</p>`;
-            chatbox.scrollTop = chatbox.scrollHeight;
-        }
+        // Negative Rebuttal
+        let conRebuttal = await sendMessageToAPI(apiKey, `Rebut the Pro's rebuttal: ${proRebuttal}`, conRole);
+        chatbox.innerHTML += `<p class="message con"><strong>Con (Negative Rebuttal):</strong> ${conRebuttal}</p>`;
+        chatbox.scrollTop = chatbox.scrollHeight;
+
+        // Final Affirmative Rebuttal
+        let finalProRebuttal = await sendMessageToAPI(apiKey, `Make the final rebuttal`, proRole);
+        chatbox.innerHTML += `<p class="message pro"><strong>Pro (Final Rebuttal):</strong> ${finalProRebuttal}</p>`;
+        chatbox.scrollTop = chatbox.scrollHeight;
     });
 </script>
 
