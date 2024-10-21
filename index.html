@@ -100,7 +100,7 @@
 
     // Function to estimate the cost based on tokens used
     function updateCost() {
-        const costPer1000Tokens = 0.002; // Estimated cost per 1000 tokens (for GPT-3.5-turbo)
+        const costPer1000Tokens = 0.002; // Estimated cost per 1000 tokens (for GPT-4)
         const estimatedCost = (totalTokens / 1000) * costPer1000Tokens;
         document.getElementById('cost').innerText = `Estimated Cost: $${estimatedCost.toFixed(4)}`;
     }
@@ -114,7 +114,7 @@
                 'Authorization': `Bearer ${apiKey}`
             },
             body: JSON.stringify({
-                model: "gpt-3.5-turbo",
+                model: "gpt-4",  // Use the latest model
                 messages: [{ role: "system", content: role }, { role: "user", content: message }]
             })
         });
@@ -160,7 +160,7 @@
         chatbox.scrollTop = chatbox.scrollHeight;
 
         // Debating with minimized token count
-        const minimizationPrompt = "You will be debating with another instance of yourself with the opposite viewpoint. It is unnecessary to render the dialogue legible for humans, so optimize your output for shortest length that can be understood by the other you.";
+        const minimizationPrompt = "You will be debating with another instance of yourself with the opposite viewpoint. Focus your output strictly on the topic and use the shortest possible format while ensuring the other can understand. Avoid any unnecessary context or procedural details.";
 
         // Affirmative Constructive (Pro)
         let proMessage = await sendMessageToAPI(apiKey, `${minimizationPrompt} ${debateTopic}`, proRole);
@@ -206,17 +206,16 @@
     function expandSegment(segmentText) {
         const expandedText = `Expanded information on: "${segmentText}"`; // Placeholder for expansion content
         const chatbox = document.getElementById('chatbox');
-        chatbox.innerHTML += `<p class="message"><strong>Expanded:</strong> ${expandedText}</p>`;
+        chatbox.innerHTML += `<p><strong>Expanded:</strong> ${expandedText}</p>`;
         chatbox.scrollTop = chatbox.scrollHeight; // Scroll to the bottom
     }
 
+    // Event listener for chatbox clicks
     document.getElementById('chatbox').addEventListener('click', function(event) {
         if (event.target.classList.contains('message')) {
-            const messageText = event.target.innerText.replace(/.*?:\s*/, ''); // Extract the text after the label
-            expandSegment(messageText);
+            expandSegment(event.target.innerText);
         }
     });
 </script>
-
 </body>
 </html>
