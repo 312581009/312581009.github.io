@@ -159,8 +159,10 @@
         chatbox.innerHTML += `<p class="message pro"><strong>Pro (Affirmative):</strong> ${debateTopic}</p>`;
         chatbox.scrollTop = chatbox.scrollHeight;
 
-        // Debating with minimized token count
-        const minimizationPrompt = "You will be debating with another instance of yourself with the opposite viewpoint. Focus your output strictly on the topic and use the shortest possible format while ensuring the other can understand. Avoid any unnecessary context or procedural details.";
+        // Debating with minimized token count if abstraction is enabled
+        const minimizationPrompt = abstractionEnabled ? 
+            "You will be debating with another instance of yourself with the opposite viewpoint. Focus your output strictly on the topic and use the shortest possible format while ensuring the other can understand. Avoid any unnecessary context or procedural details." : 
+            ""; // No prompt if abstraction is not enabled
 
         // Affirmative Constructive (Pro)
         let proMessage = await sendMessageToAPI(apiKey, `${minimizationPrompt} ${debateTopic}`, proRole);
