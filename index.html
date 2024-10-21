@@ -69,6 +69,9 @@
 <div id="input-area">
     <input type="password" id="api-key" placeholder="Enter your OpenAI API key" required>
     <input type="text" id="debate-topic" placeholder="Enter the debate topic" required>
+    <label>
+        <input type="checkbox" id="toggle-abstraction"> Enable Abstraction
+    </label>
     <button id="start-debate-btn">Start Debate</button>
     <div id="runtime">Runtime: 0 seconds</div>
     <div id="cost">Estimated Cost: $0.00</div>
@@ -78,16 +81,18 @@
     let totalTokens = 0; // Keep track of the total tokens used
     let startTime; // Store the debate start time
     let timerActive = false; // To manage timer state
+    let timerInterval; // Store the interval ID
 
     // Function to start the timer
     function startTimer() {
         startTime = Date.now();
         timerActive = true; // Set timer as active
-        setInterval(updateTimer, 1000); // Update every second
+        timerInterval = setInterval(updateTimer, 1000); // Update every second
     }
 
     // Function to update the runtime timer
     function updateTimer() {
+        if (!timerActive) return; // Check if the timer is active
         const now = Date.now();
         const elapsedSeconds = Math.floor((now - startTime) / 1000);
         document.getElementById('runtime').innerText = `Runtime: ${elapsedSeconds} seconds`;
@@ -100,6 +105,7 @@
         document.getElementById('cost').innerText = `Estimated Cost: $${estimatedCost.toFixed(4)}`;
     }
 
+    // Function to send a message to the OpenAI API
     async function sendMessageToAPI(apiKey, message, role) {
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
@@ -130,6 +136,7 @@
     document.getElementById('start-debate-btn').addEventListener('click', async function() {
         const apiKey = document.getElementById('api-key').value.trim();
         const debateTopic = document.getElementById('debate-topic').value.trim();
+        const abstractionEnabled = document.getElementById('toggle-abstraction').checked;
 
         if (!apiKey || !debateTopic) {
             alert('Please enter both the API key and a debate topic.');
@@ -144,67 +151,69 @@
 
         const proRole = "You are a debater in the Lincoln-Douglas debate format. Your job is to defend the Affirmative (Pro) side of the debate.";
         const conRole = "You are a debater in the Lincoln-Douglas debate format. Your job is to defend the Negative (Con) side of the debate.";
-
+        
         // Start the timer
         startTimer();
 
-        // Affirmative Constructive (Pro)
+        // Initial messages
         chatbox.innerHTML += `<p class="message pro"><strong>Pro (Affirmative):</strong> ${debateTopic}</p>`;
         chatbox.scrollTop = chatbox.scrollHeight;
 
-        let proMessage = await sendMessageToAPI(apiKey, debateTopic, proRole);
+        // Debating with minimized token count
+        const minimizationPrompt = "You will be debating with another instance of yourself with the opposite viewpoint. It is unnecessary to render the dialogue legible for humans, so optimize your output for shortest length that can be understood by the other you.";
+
+        // Affirmative Constructive (Pro)
+        let proMessage = await sendMessageToAPI(apiKey, `${minimizationPrompt} ${debateTopic}`, proRole);
         chatbox.innerHTML += `<p class="message pro"><strong>Pro (Affirmative):</strong> ${proMessage}</p>`;
         chatbox.scrollTop = chatbox.scrollHeight;
 
         // Cross-Examination by Con
-        let conCX = await sendMessageToAPI(apiKey, `Cross-examine the Pro's argument: ${proMessage}`, conRole);
+        let conCX = await sendMessageToAPI(apiKey, `${minimizationPrompt} Cross-examine the Pro's argument: ${proMessage}`, conRole);
         chatbox.innerHTML += `<p class="message con"><strong>Con (Cross-Examination):</strong> ${conCX}</p>`;
         chatbox.scrollTop = chatbox.scrollHeight;
 
         // Negative Constructive (Con)
-        let conMessage = await sendMessageToAPI(apiKey, debateTopic, conRole);
+        let conMessage = await sendMessageToAPI(apiKey, `${minimizationPrompt} ${debateTopic}`, conRole);
         chatbox.innerHTML += `<p class="message con"><strong>Con (Negative):</strong> ${conMessage}</p>`;
         chatbox.scrollTop = chatbox.scrollHeight;
 
         // Cross-Examination by Pro
-        let proCX = await sendMessageToAPI(apiKey, `Cross-examine the Con's argument: ${conMessage}`, proRole);
+        let proCX = await sendMessageToAPI(apiKey, `${minimizationPrompt} Cross-examine the Con's argument: ${conMessage}`, proRole);
         chatbox.innerHTML += `<p class="message pro"><strong>Pro (Cross-Examination):</strong> ${proCX}</p>`;
         chatbox.scrollTop = chatbox.scrollHeight;
 
         // Affirmative Rebuttal
-        let proRebuttal = await sendMessageToAPI(apiKey, `Rebut the Con's argument: ${conMessage}`, proRole);
+        let proRebuttal = await sendMessageToAPI(apiKey, `${minimizationPrompt} Rebut the Con's argument: ${conMessage}`, proRole);
         chatbox.innerHTML += `<p class="message pro"><strong>Pro (Affirmative Rebuttal):</strong> ${proRebuttal}</p>`;
         chatbox.scrollTop = chatbox.scrollHeight;
 
         // Negative Rebuttal
-        let conRebuttal = await sendMessageToAPI(apiKey, `Rebut the Pro's rebuttal: ${proRebuttal}`, conRole);
+        let conRebuttal = await sendMessageToAPI(apiKey, `${minimizationPrompt} Rebut the Pro's rebuttal: ${proRebuttal}`, conRole);
         chatbox.innerHTML += `<p class="message con"><strong>Con (Negative Rebuttal):</strong> ${conRebuttal}</p>`;
         chatbox.scrollTop = chatbox.scrollHeight;
 
         // Final Affirmative Rebuttal
-        let finalProRebuttal = await sendMessageToAPI(apiKey, `Make the final rebuttal`, proRole);
+        let finalProRebuttal = await sendMessageToAPI(apiKey, `${minimizationPrompt} Make the final rebuttal`, proRole);
         chatbox.innerHTML += `<p class="message pro"><strong>Pro (Final Rebuttal):</strong> ${finalProRebuttal}</p>`;
         chatbox.scrollTop = chatbox.scrollHeight;
 
-        // Stop the timer after the final rebuttal
-        timerActive = false; // Set timer as inactive
+        // Stop the timer
+        timerActive = false;
+        clearInterval(timerInterval);
     });
 
-    // Function to expand a segment when clicked
-    async function expandSegment(segment) {
-        const apiKey = document.getElementById('api-key').value.trim();
-        const expandedContent = await sendMessageToAPI(apiKey, `Expand on the following argument: ${segment}`, "You are a knowledgeable assistant. Please provide a detailed explanation.");
-        
+    // Expand segment on click
+    function expandSegment(segmentText) {
+        const expandedText = `Expanded information on: "${segmentText}"`; // Placeholder for expansion content
         const chatbox = document.getElementById('chatbox');
-        chatbox.innerHTML += `<p class="message"><strong>Expansion:</strong> ${expandedContent}</p>`;
+        chatbox.innerHTML += `<p class="message"><strong>Expanded:</strong> ${expandedText}</p>`;
         chatbox.scrollTop = chatbox.scrollHeight; // Scroll to the bottom
     }
 
-    // Attach click event to messages in the chatbox
     document.getElementById('chatbox').addEventListener('click', function(event) {
         if (event.target.classList.contains('message')) {
-            const messageContent = event.target.innerText.replace(/^(Pro|Con|Expansion): /, ''); // Remove the label for expansion
-            expandSegment(messageContent);
+            const messageText = event.target.innerText.replace(/.*?:\s*/, ''); // Extract the text after the label
+            expandSegment(messageText);
         }
     });
 </script>
